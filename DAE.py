@@ -40,18 +40,22 @@ def load_image(img_folder, file, img_height, img_width):
     return image
 
 
-def create_dataset(img_folder, y=False):
+def create_dataset(img_folder, y=False, max=999999999):
     files = os.listdir(img_folder)
     img_data_array = []
     # resize with proportional factor
     img_height = 183
     img_width = 244
-
+    cnt = 0
     for file in files:
         if y:
             for _ in range(4):
                 img_data_array.append(load_image(img_folder, file, img_height, img_width))
+                cnt += 1
         img_data_array.append(load_image(img_folder, file, img_height, img_width))
+        cnt += 1
+        if cnt > max:
+            break
     return img_data_array
 
 
@@ -64,19 +68,30 @@ def load_data():
     return X, y
 
 
+def load_model():
+    autoencoder = Denoise()
+    autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    autoencoder.load_weights('checkpoints')
+    return autoencoder
+
+
 def main():
     x, y = load_data()
-    x = np.asarray(x)
-    y = np.asarray(y)
 
+    x = np.asarray(x[:70])
+    y = np.asarray(y[:70])
     autoencoder = Denoise()
     autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     autoencoder.fit(x, y,
-                    epochs=100,
+                    epochs=3,
                     shuffle=True,
                     batch_size=32,
                     validation_split=0.2)
-    encoded_imgs = autoencoder.encoder(y).numpy()
+
+    IMGS_DIR = r"D:\STUDIA\IBM\SEM2\WK\PROJEKT"
+    original_dir = pathlib.Path(os.path.join(IMGS_DIR, r"HAM10000"))
+
+    encoded_imgs = autoencoder.encoder(x).numpy()
     decoded_imgs = autoencoder.decoder(encoded_imgs).numpy()
     n = 10
     plt.figure(figsize=(20, 4))
@@ -84,7 +99,7 @@ def main():
         # display original + noise
         ax = plt.subplot(2, n, i + 1)
         plt.title("original + noise")
-        plt.imshow(tf.squeeze(x[i]))
+        plt.imshow(tf.squeeze(x[i + 6]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
@@ -92,7 +107,7 @@ def main():
         # display reconstruction
         bx = plt.subplot(2, n, i + n + 1)
         plt.title("reconstructed")
-        plt.imshow(tf.squeeze(decoded_imgs[i]))
+        plt.imshow(tf.squeeze(decoded_imgs[i + 6]))
         plt.gray()
         bx.get_xaxis().set_visible(False)
         bx.get_yaxis().set_visible(False)
