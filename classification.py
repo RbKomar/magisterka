@@ -130,11 +130,11 @@ def create_dataset(img_folder, max=float('inf')):
 def load_data():
     IMGS_DIR = r"D:\STUDIA\IBM\SEM2\WK\PROJEKT"
     original_dir = pathlib.Path(os.path.join(IMGS_DIR, r"HAM10000"))
-    x, y = create_dataset(original_dir, 1000)
+    x, y = create_dataset(original_dir, 250)
     le = preprocessing.LabelEncoder()
     le.fit(["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"])
     y = le.transform(y)
-    size = 0.8*len(x)
+    size = int(0.8*len(x))
     x_train, x_test = x[::size], x[size::]
     y_train, y_test = y[::size], y[size::]
     return x_train, x_test, y_train, y_test
@@ -208,7 +208,7 @@ def test_model():
     model.load_weights("IRV2+SA.hdf5")
     predictions = model.predict(x_test, verbose=0)
     y_pred = np.argmax(predictions, axis=1)
-    y_test = to_categorical(y_test)
+    #y_test = to_categorical(y_test)
 
     targetnames = ['akiec', 'bcc', 'bkl', 'df', 'mel', 'nv', 'vasc']
     report = classification_report(y_test, y_pred, target_names=targetnames)
@@ -222,12 +222,11 @@ def test_model():
     print("Recall: " + str(recall_score(y_test, y_pred, average='weighted')))
     print("Accuracy: " + str(accuracy_score(y_test, y_pred)))
     for i in range(7):
-        r = roc_auc_score(y_test[:, i], predictions[:, i])
+        r = roc_auc_score(y_test[:][i], predictions[:][i])
         print("The ROC AUC score of " + targetnames[i] + " is: " + str(r))
 
 
 def main():
-    train_model()
     test_model()
 
 
