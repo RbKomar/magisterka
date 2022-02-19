@@ -1,4 +1,6 @@
 import pathlib
+
+from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras import Model
@@ -117,12 +119,12 @@ def create_dataset(img_folder, max=float('inf')):
     for file in files:
         img = load_image(img_folder, file, img_height, img_width)
         decoded_img = autoencoder.decoder(autoencoder.encoder(img.reshape(1, 244, 183, 3)).numpy()).numpy()
-        img_data_array.append(decoded_img)
-        y.append(metadata[metadata["image_id"] == file.split('.')[0]]["dx"])
+        img_data_array.append(np.resize(tf.squeeze(decoded_img).numpy(), (299, 299, 3)))
+        y.append(metadata[metadata["image_id"] == file.split('.')[0]]["dx"].values[0])
         cnt += 1
         if cnt > max:
             break
-    return img_data_array, y
+    return np.asarray(img_data_array), y
 
 
 def load_data():
@@ -132,7 +134,9 @@ def load_data():
     le = preprocessing.LabelEncoder()
     le.fit(["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"])
     y = le.transform(y)
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+    size = 0.8*len(x)
+    x_train, x_test = x[::size], x[size::]
+    y_train, y_test = y[::size], y[size::]
     return x_train, x_test, y_train, y_test
 
 
@@ -166,7 +170,12 @@ def create_model():
 
 
 def train_model():
-    x_train, x_test, y_train, y_test = load_data()
+    dir = r"D:\STUDIA\IBM\SEM2\WK\PROJEKT"
+    original_dir = pathlib.Path(os.path.join(dir, r"HAM10000"))
+    x, y = create_dataset(original_dir, 1000)
+    le = preprocessing.LabelEncoder()
+    y = to_categorical(le.fit_transform(y))
+
     model = create_model()
     # class weights given by SOTA author
     class_weights = {
@@ -180,13 +189,13 @@ def train_model():
     }
     callbacks = [
         ModelCheckpoint(filepath='IRV2+SA.hdf5', monitor='val_accuracy', save_best_only=True, save_weights_only=True),
-        EarlyStopping(monitor='val_loss', mode='min', patience=30, min_delta=0.001)
+        EarlyStopping(monitor='val_loss', mode='min', patience=2, min_delta=0.001)
     ]
-    history = model.fit(x_train, y_train,
+    history = model.fit(x, y,
                         epochs=3,
                         verbose=2,
                         batch_size=32,
-                        validation_data=(x_test, y_test), callbacks=callbacks, class_weight=class_weights)
+                        validation_split=0.2, callbacks=callbacks, class_weight=class_weights)
     model.save_weights("IRV2+SA.hdf5")
 
     return history
